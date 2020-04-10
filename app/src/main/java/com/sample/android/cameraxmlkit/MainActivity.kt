@@ -33,7 +33,6 @@ class MainActivity : AppCompatActivity() {
     private val permissions = listOf(Manifest.permission.CAMERA)
 
     private var lensFacing: Int = CameraSelector.LENS_FACING_BACK
-    private val isFrontFacing get() = lensFacing == CameraSelector.LENS_FACING_FRONT
 
     private val detector: FirebaseVisionBarcodeDetector by lazy {
         FirebaseVision.getInstance().visionBarcodeDetector
@@ -48,6 +47,7 @@ class MainActivity : AppCompatActivity() {
         binding = ActivityMainBinding.inflate(layoutInflater)
     }
 
+    @SuppressLint("UnsafeExperimentalUsageError")
     private fun bindCameraUseCases() {
         val cameraProviderFuture = ProcessCameraProvider.getInstance(this)
         cameraProviderFuture.addListener(Runnable {
@@ -65,11 +65,27 @@ class MainActivity : AppCompatActivity() {
             val imageAnalysis = ImageAnalysis.Builder()
                 .setTargetAspectRatio(AspectRatio.RATIO_4_3)
                 .setTargetRotation(preview_view.display.rotation)
-                .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
+                .setBackpressureStrategy(ImageAnalysis.STRATEGY_BLOCK_PRODUCER)
                 .build()
 
 
-            // TODO set imageAnalysis analyzer
+            imageAnalysis.setAnalyzer(executor,
+                ImageAnalysis.Analyzer { image ->
+                    Log.i(TAG, "Analyzing new image")
+                    image.image?.also {
+                        detector.detectInImage(
+                            FirebaseVisionImage
+                                .fromMediaImage(it, imageRotationDegrees)
+                        )
+                            .addOnSuccessListener {
+                                for (barcode in it) {
+                                    Log.i(TAG, "Barcode detected ${barcode.displayValue}")
+                                }
+                                image.close()
+                            }
+                    }
+                }
+            )
 
             // Create a new camera selector each time, enforcing lens facing
             val cameraSelector = CameraSelector.Builder().requireLensFacing(lensFacing).build()
