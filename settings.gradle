@@ -1,0 +1,2 @@
+rootProject.name='CameraXMLKit'
+include ':app'

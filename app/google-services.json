@@ -1,0 +1,40 @@
+{
+  "project_info": {
+    "project_number": "1082498360877",
+    "firebase_url": "https://cameraxmlkit-609cd.firebaseio.com",
+    "project_id": "cameraxmlkit-609cd",
+    "storage_bucket": "cameraxmlkit-609cd.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1082498360877:android:72cfbcbc02905e0654baa4",
+        "android_client_info": {
+          "package_name": "com.sample.android.cameraxmlkit"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "1082498360877-11kqrav396gibt3e7gci609s29267dj2.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCxrvxchadJ7U0d4iSALjiASvi9E1nl3rU"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "1082498360877-11kqrav396gibt3e7gci609s29267dj2.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
