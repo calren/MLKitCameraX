@@ -2,6 +2,7 @@ package com.sample.android.cameraxmlkit
 
 import android.Manifest
 import android.annotation.SuppressLint
+import android.content.Context
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import androidx.appcompat.app.AppCompatActivity
@@ -20,16 +21,19 @@ import com.google.firebase.ml.vision.FirebaseVision
 import com.google.firebase.ml.vision.barcode.FirebaseVisionBarcodeDetector
 import com.google.firebase.ml.vision.common.FirebaseVisionImage
 import com.sample.android.cameraxmlkit.databinding.ActivityMainBinding
+import kotlinx.android.synthetic.main.activity_main.*
 import java.util.concurrent.Executors
 
 class MainActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityMainBinding
     private val executor = Executors.newSingleThreadExecutor()
-    private lateinit var bitmapBuffer: Bitmap
     private var imageRotationDegrees: Int = 0
 
+    private val permissions = listOf(Manifest.permission.CAMERA)
+
     private var lensFacing: Int = CameraSelector.LENS_FACING_BACK
+    private val isFrontFacing get() = lensFacing == CameraSelector.LENS_FACING_FRONT
 
     private val detector: FirebaseVisionBarcodeDetector by lazy {
         FirebaseVision.getInstance().visionBarcodeDetector
@@ -39,49 +43,31 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
+        // Using view binding for preview_view in bindCameraUseCases results in
+        // IllegalStateException: binding.previewView.display must not be null
         binding = ActivityMainBinding.inflate(layoutInflater)
-
-        handlePermissions()
     }
 
-    fun handlePermissions() {
-        if (ContextCompat.checkSelfPermission(
-                this,
-                Manifest.permission.CAMERA
-            ) != PackageManager.PERMISSION_GRANTED
-        ) {
-            ActivityCompat.requestPermissions(
-                this,
-                arrayOf(Manifest.permission.CAMERA), MY_PERMISSIONS_REQUEST_CAMERA
-            )
-        } else {
-            Log.i(TAG, "All Permissions Granted Already")
-            bindCameraUseCases()
-        }
-    }
-
-    @SuppressLint("UnsafeExperimentalUsageError")
     private fun bindCameraUseCases() {
-        Log.i(TAG, "Binding camera use cases")
-
         val cameraProviderFuture = ProcessCameraProvider.getInstance(this)
         cameraProviderFuture.addListener(Runnable {
-            Log.i(TAG, "Camera provider ready")
 
+            // Camera provider is now guaranteed to be available
             val cameraProvider = cameraProviderFuture.get()
 
             // Set up the view finder use case to display camera preview
             val preview = Preview.Builder()
                 .setTargetAspectRatio(AspectRatio.RATIO_4_3)
-//                .setTargetRotation(binding.previewView.display.rotation)
+                .setTargetRotation(preview_view.display.rotation)
                 .build()
 
             // Set up the image analysis use case which will process frames in real time
             val imageAnalysis = ImageAnalysis.Builder()
                 .setTargetAspectRatio(AspectRatio.RATIO_4_3)
-//                .setTargetRotation(binding.previewView.display.rotation)
+                .setTargetRotation(preview_view.display.rotation)
                 .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
                 .build()
+
 
             // TODO set imageAnalysis analyzer
 
@@ -95,81 +81,40 @@ class MainActivity : AppCompatActivity() {
             )
 
             // Use the camera object to link our preview use case with the view
-            preview.setSurfaceProvider(binding.previewView.createSurfaceProvider(camera.cameraInfo))
-
+            preview.setSurfaceProvider(preview_view.createSurfaceProvider(camera.cameraInfo))
 
         }, ContextCompat.getMainExecutor(this))
+    }
 
-        binding.previewView.post {
+    override fun onResume() {
+        super.onResume()
 
-
-            //        cameraProviderFuture.addListener(Runnable {
-//
-//            val cameraProvider = cameraProviderFuture.get()
-//
-//            // Set up the view finder use case to display camera preview
-//            val preview = Preview.Builder()
-//                .setTargetAspectRatio(AspectRatio.RATIO_4_3)
-//                .setTargetRotation(binding.previewView.display.rotation)
-//                .build()
-//
-//            // Set up the image analysis use case which will process frames in real time
-//            val imageAnalysis = ImageAnalysis.Builder()
-//                .setTargetAspectRatio(AspectRatio.RATIO_4_3)
-//                .setTargetRotation(binding.previewView.display.rotation)
-//                .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
-//                .build()
-//
-//            imageAnalysis.setAnalyzer(executor, ImageAnalysis.Analyzer { image ->
-//                // TODO handle image in pause state?
-//                Log.i(TAG, "Image detected")
-//
-//                // Do analysis and reporting here
-//                image.image?.also {
-//                    detector.detectInImage(FirebaseVisionImage.fromMediaImage(it, 0))
-//                        .addOnSuccessListener {
-//                            for (barcode in it) {
-//                                Log.i(TAG, "Barcode detected: ${barcode.displayValue}")
-//                            }
-//                        }
-//                        .addOnFailureListener {
-//                            Log.i(TAG, "Unsuccessful barcode detection ${it.stackTrace}")
-//                        }
-//                }
-//            })
-//
-//            // Create a new camera selector each time, enforcing lens facing
-//            val cameraSelector = CameraSelector.Builder().requireLensFacing(lensFacing).build()
-//
-//            // Apply declared configs to CameraX using the same lifecycle owner
-//            cameraProvider.unbindAll()
-//            val camera = cameraProvider.bindToLifecycle(
-//                this as LifecycleOwner, cameraSelector, preview, imageAnalysis
-//            )
-//
-//            // Use the camera object to link our preview use case with the view
-//            preview.setSurfaceProvider(binding.previewView.createSurfaceProvider(camera.cameraInfo))
-//
-//        }, ContextCompat.getMainExecutor(this))
+        // Request permissions each time the app resumes, since they can be revoked at any time
+        if (!hasPermissions(this)) {
+            ActivityCompat.requestPermissions(
+                this, permissions.toTypedArray(), MY_PERMISSIONS_REQUEST_CAMERA
+            )
+        } else {
+            bindCameraUseCases()
         }
     }
 
     override fun onRequestPermissionsResult(
         requestCode: Int,
-        permissions: Array<String>, grantResults: IntArray
+        permissions: Array<out String>,
+        grantResults: IntArray
     ) {
-        when (requestCode) {
-            MY_PERMISSIONS_REQUEST_CAMERA -> {
-                // If request is cancelled, the result arrays are empty.
-                if ((grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED)) {
-                    Log.i(TAG, "Camera permission granted")
-                    bindCameraUseCases()
-                } else {
-                    Log.e(TAG, "Camera permission NOT granted")
-                }
-                return
-            }
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode == MY_PERMISSIONS_REQUEST_CAMERA && hasPermissions(this)) {
+            bindCameraUseCases()
+        } else {
+            Log.e(TAG, "Camera permission not granted")
         }
+    }
+
+    /** Convenience method used to check if all permissions required by this app are granted */
+    private fun hasPermissions(context: Context) = permissions.all {
+        ContextCompat.checkSelfPermission(context, it) == PackageManager.PERMISSION_GRANTED
     }
 }
 
